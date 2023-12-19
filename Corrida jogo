@@ -1,0 +1,172 @@
+#include <TimerOne.h>
+#include <MPU6050_tockn.h>
+#include <Wire.h>
+
+#define MPU6050_ADDR         0x68 // ENDEREÇO QUANDO O PINO AD0 ESTIVER LIGADO AO GND
+//#define MPU6050_ADDR         0x69 // ENDEREÇO QUANDO O PINO AD0 ESTIVER LIGADO AO VCC
+#define DEBUG
+
+MPU6050 mpu6050(Wire);
+const int buzzerPino = 11;
+const int obstaculo[] = {3, 4, 5};
+const int posicao[] = {6, 7, 8};
+
+float angulo;
+
+int a = 0;
+int esperaPosicao;
+int esperaObstaculo;
+int pontuacao = 0;
+int interrupt1 = 2;
+int tempo = 100;
+
+void setup() {
+
+  randomSeed(analogRead(A0));
+  Serial.begin(9600);
+  Wire.begin();
+  mpu6050.begin();
+  mpu6050.calcGyroOffsets(false);// MUDAR PARA "true" SE QUISER VISUALIZAR INFORMAÇÕES DE CALIBRAÇÃO NO MONITOR SERIAL
+
+  for (int i = 0; i < 3; i++) {
+    pinMode(obstaculo[i], OUTPUT);
+}
+  for (int i = 0; i < 3; i++) {
+    pinMode(posicao[i], OUTPUT);
+}
+  pinMode(interrupt1, INPUT_PULLUP);
+  pinMode(buzzerPino, OUTPUT);
+
+  attachInterrupt(0, loading, FALLING);
+  #ifdef DEBUG
+  Serial.println("Fim Setup");
+  #endif 
+  waiting();
+  starGame();
+}
+
+void loop() {
+
+  novaEstrutura();
+  verificaPosicao();
+  compara();
+  dificuldade();
+  
+}
+
+void waiting(){
+  while(a!=2) {
+  digitalWrite(posicao[0], HIGH);
+  digitalWrite(posicao[2], HIGH);
+  digitalWrite(obstaculo[0], HIGH);
+  digitalWrite(obstaculo[2], HIGH);
+  delay(200);
+  digitalWrite(posicao[0], LOW);
+  digitalWrite(posicao[2], LOW);
+  digitalWrite(obstaculo[0], LOW);
+  digitalWrite(obstaculo[2], LOW);
+  digitalWrite(obstaculo[1], HIGH);
+  digitalWrite(posicao[1], HIGH);
+  delay(200);
+  digitalWrite(obstaculo[1], LOW);
+  digitalWrite(posicao[1], LOW);
+  }
+}
+
+void starGame(){
+  for (int i = 0; i < 3; i++) {
+    digitalWrite(posicao[i], HIGH);
+}
+  tone(buzzerPino, 1000);
+  delay(1000);
+  for (int i = 0; i < 3; i++) {
+    digitalWrite(posicao[i], LOW);
+} 
+  noTone(buzzerPino);
+  delay(1000);
+}
+
+void  loading(){
+ 	a = 2;
+}
+
+void novaEstrutura(){
+  for (int i = 0; i < 3; i++) {
+    digitalWrite(obstaculo[i], LOW);
+                              } 
+  int estrutura = random(3);
+  digitalWrite(obstaculo[estrutura], HIGH);
+  esperaObstaculo = estrutura;
+
+}
+
+void verificaPosicao() {
+  for (int i = 0; i < 50; i++){
+    mpu6050.update();
+    angulo = mpu6050.getAngleZ();
+    if (angulo < -30){  // direita
+    digitalWrite(posicao[0], HIGH);
+    digitalWrite(posicao[1], LOW);
+    digitalWrite(posicao[2], LOW);
+    esperaPosicao = 0;
+  }   else if (angulo > 30){ // esquerda
+    digitalWrite(posicao[0], LOW);
+    digitalWrite(posicao[1], LOW);
+    digitalWrite(posicao[2], HIGH);    
+    esperaPosicao = 2;
+    }else { // meio
+    digitalWrite(posicao[0], LOW);
+    digitalWrite(posicao[1], HIGH);
+    digitalWrite(posicao[2], LOW);
+    esperaPosicao = 1;
+
+    }
+  Serial.println("Posição: " + String(angulo));
+  delay(tempo);
+}
+}
+
+void compara() {
+    if (esperaPosicao == esperaObstaculo) {
+      crash();
+                                          }
+    else {
+      pontuacao ++;
+      tone(buzzerPino, 200);
+      delay(200);
+      noTone(buzzerPino);
+         }
+}
+void crash(){
+      Serial.println("Crushhhhh!!!!");
+      Serial.println("Pontuação: " + String(pontuacao));
+     tone(buzzerPino, 800); 
+      delay(1000);
+     tone(buzzerPino, 500);
+      delay(200);
+    tone(buzzerPino,200);
+      delay(1000);
+    noTone(buzzerPino);
+      a = 0;
+      pontuacao = 0;
+      waiting(); 
+      starGame();
+            }
+
+void dificuldade() {
+  if  (pontuacao > 4){
+    tempo = 80;
+    if (pontuacao > 9){
+      tempo = 60;
+      if (pontuacao > 14){
+        tempo = 40;
+        if (pontuacao > 19){
+          tempo = 20;
+          if (pontuacao > 24){
+            tempo = 10;
+          }
+        }
+      }
+    }
+  }
+}
