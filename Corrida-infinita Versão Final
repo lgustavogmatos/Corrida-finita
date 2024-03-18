@@ -33,7 +33,7 @@ void setup() {
   for (int i = 0; i < 3; i++) {
     pinMode(posicao[i], OUTPUT);
 }
-  pinMode(interruptPino, INPUT_PULLUP);
+  
   pinMode(buzzerPino, OUTPUT);
 
   attachInterrupt(digitalPinToInterrupt(interruptPino), loading, FALLING);
