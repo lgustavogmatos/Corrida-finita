@@ -6,9 +6,9 @@
 #define DEBUG
 
 MPU6050 mpu6050(Wire);
-const int buzzerPino = 11;
-const int obstaculo[] = {3, 4, 5};
-const int posicao[] = {6, 7, 8};
+const int buzzerPino = 12;
+const int obstaculo[] = {13, 14, 15};
+const int posicao[] = {16, 17, 18};
 
 float angulo;
 
@@ -16,13 +16,13 @@ int a = 0;
 int esperaPosicao;
 int esperaObstaculo;
 int pontuacao = 0;
-int interrupt1 = 2;
+int interruptPino = 2;
 int tempo = 100;
 
 void setup() {
 
-  randomSeed(analogRead(A0));
-  Serial.begin(9600);
+  randomSeed(analogRead(34));
+  Serial.begin(115200);
   Wire.begin();
   mpu6050.begin();
   mpu6050.calcGyroOffsets(false);// MUDAR PARA "true" SE QUISER VISUALIZAR INFORMAÇÕES DE CALIBRAÇÃO NO MONITOR SERIAL
@@ -33,10 +33,10 @@ void setup() {
   for (int i = 0; i < 3; i++) {
     pinMode(posicao[i], OUTPUT);
 }
-  pinMode(interrupt1, INPUT_PULLUP);
+  pinMode(interruptPino, INPUT_PULLUP);
   pinMode(buzzerPino, OUTPUT);
 
-  attachInterrupt(0, loading, FALLING);
+  attachInterrupt(digitalPinToInterrupt(interruptPino), loading, FALLING);
   #ifdef DEBUG
   Serial.println("Fim Setup");
   #endif 
