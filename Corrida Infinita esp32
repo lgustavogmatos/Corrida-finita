@@ -1,0 +1,232 @@
+#include <MPU6050_tockn.h>
+#include <Wire.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+#define SCREEN_I2C_ADDR 0x3C
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET 4
+
+#define OBSTACLE_RADIUS 3
+#define PLAYER_RADIUS 5
+
+
+#define MPU6050_ADDR         0x68 // ENDEREÇO QUANDO O PINO AD0 ESTIVER LIGADO AO GND
+//#define MPU6050_ADDR         0x69 // ENDEREÇO QUANDO O PINO AD0 ESTIVER LIGADO AO VCC
+#define DEBUG
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+MPU6050 mpu6050(Wire);
+const int buzzerPino = 12;
+const int obstaculo[] = {13, 14, 15};
+const int posicao[] = {16, 17, 18};
+
+float angulo;
+
+int a = 0;
+int esperaPosicao;
+int esperaObstaculo;
+int pontuacao = 0;
+int interruptPino = 2;
+int tempo = 100;
+
+void gameIntro();
+
+void setup() {
+
+  display.begin(SSD1306_SWITCHCAPVCC, SCREEN_I2C_ADDR);
+  randomSeed(analogRead(34));
+  Serial.begin(115200);
+  Wire.begin();
+  mpu6050.begin();
+  mpu6050.calcGyroOffsets(false);// MUDAR PARA "true" SE QUISER VISUALIZAR INFORMAÇÕES DE CALIBRAÇÃO NO MONITOR SERIAL
+
+  for (int i = 0; i < 3; i++) {
+    pinMode(obstaculo[i], OUTPUT);
+}
+  for (int i = 0; i < 3; i++) {
+    pinMode(posicao[i], OUTPUT);
+}
+  
+  pinMode(buzzerPino, OUTPUT);
+
+  attachInterrupt(digitalPinToInterrupt(interruptPino), loading, FALLING);
+  #ifdef DEBUG
+  Serial.println("Fim Setup");
+  #endif 
+  waiting();
+  starGame();
+  gameIntro(display);
+}
+
+void loop() {
+
+  novaEstrutura();
+  verificaPosicao();
+  compara();
+  dificuldade();
+  
+}
+
+void waiting(){
+  while(a!=2) {
+  digitalWrite(posicao[0], HIGH);
+  digitalWrite(posicao[2], HIGH);
+  digitalWrite(obstaculo[0], HIGH);
+  digitalWrite(obstaculo[2], HIGH);
+  delay(200);
+  digitalWrite(posicao[0], LOW);
+  digitalWrite(posicao[2], LOW);
+  digitalWrite(obstaculo[0], LOW);
+  digitalWrite(obstaculo[2], LOW);
+  digitalWrite(obstaculo[1], HIGH);
+  digitalWrite(posicao[1], HIGH);
+  delay(200);
+  digitalWrite(obstaculo[1], LOW);
+  digitalWrite(posicao[1], LOW);
+  }
+}
+
+void starGame(){
+  for (int i = 0; i < 3; i++) {
+    digitalWrite(posicao[i], HIGH);
+}
+  tone(buzzerPino, 1000);
+  delay(1000);
+  for (int i = 0; i < 3; i++) {
+    digitalWrite(posicao[i], LOW);
+} 
+  noTone(buzzerPino);
+  delay(1000);
+}
+
+void  loading(){
+ 	a = 2;
+}
+
+void novaEstrutura(){
+  for (int i = 0; i < 3; i++) {
+    digitalWrite(obstaculo[i], LOW);
+                              } 
+  int estrutura = random(3);
+  digitalWrite(obstaculo[estrutura], HIGH);
+  esperaObstaculo = estrutura;
+
+}
+
+void verificaPosicao() {
+  for (int i = 0; i < 50; i++){
+    mpu6050.update();
+    angulo = mpu6050.getAngleZ();
+    if (angulo < -30){  // direita
+    digitalWrite(posicao[0], HIGH);
+    digitalWrite(posicao[1], LOW);
+    digitalWrite(posicao[2], LOW);
+    esperaPosicao = 0;
+  }   else if (angulo > 30){ // esquerda
+    digitalWrite(posicao[0], LOW);
+    digitalWrite(posicao[1], LOW);
+    digitalWrite(posicao[2], HIGH);    
+    esperaPosicao = 2;
+    }else { // meio
+    digitalWrite(posicao[0], LOW);
+    digitalWrite(posicao[1], HIGH);
+    digitalWrite(posicao[2], LOW);
+    esperaPosicao = 1;
+
+    }
+  Serial.println("A posição do volante é: " + String(angulo));
+  delay(tempo);
+}
+}
+
+void compara() {
+    if (esperaPosicao == esperaObstaculo) {
+      crash();
+                                          }
+    else {
+      pontuacao ++;
+      tone(buzzerPino, 200);
+      delay(200);
+      noTone(buzzerPino);
+         }
+}
+void crash(){
+      Serial.println("Crashhhhh!!!!");
+      gameEnd(display);
+      Serial.println("Pontuação final: " + String(pontuacao));
+     tone(buzzerPino, 800); 
+      delay(1000);
+     tone(buzzerPino, 500);
+      delay(200);
+    tone(buzzerPino,200);
+      delay(1000);
+    noTone(buzzerPino);
+      a = 0;
+      pontuacao = 0;
+      tempo = 100;
+      waiting(); 
+      starGame();
+            }
+
+void dificuldade() {
+  if  (pontuacao > 4){
+    tempo = 80;
+    if (pontuacao > 9){
+      tempo = 60;
+      if (pontuacao > 14){
+        tempo = 40;
+        if (pontuacao > 19){
+          tempo = 20;
+          if (pontuacao > 24){
+            tempo = 10;
+          }
+        }
+      }
+    }
+  }
+  else tempo = 100;
+}
+void gameIntro(Adafruit_SSD1306 &display)
+{
+    display.clearDisplay();
+    display.setTextSize(2);
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(40, 0);
+    display.println(F("Corrida"));
+    display.setCursor(20, 20);
+    display.println(F("Infinita"));
+    display.display();
+    delay(1000);
+
+    // Scroll in various directions, pausing in-between:
+    display.startscrollright(0x00, 0x0F);
+    delay(100);
+    display.stopscroll();
+    delay(100);
+    display.startscrollleft(0x00, 0x0F);
+    delay(100);
+    display.stopscroll();
+    delay(100);
+    display.startscrolldiagright(0x00, 0x07);
+    delay(100);
+    display.startscrolldiagleft(0x00, 0x07);
+    delay(100);
+    display.stopscroll();
+    delay(100);
+}
+
+void gameEnd(Adafruit_SSD1306 &display)
+{
+    display.clearDisplay();
+    display.setTextSize(2);
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(40, 0);
+    display.println(F("Score: "));
+    display.setCursor(64, 20);
+    display.println(pontuacao);
+    display.display();
+
+}
